@@ -23,6 +23,9 @@ class BurpExtender(IBurpExtender, IExtensionStateListener, ITab, IHttpListener):
 	def __init__(self):
 		self.allEndpoints = []
 		self.currentEndpoint = 0
+		self.aws_access_key_id = ''
+		self.aws_secret_accesskey = ''
+		self.enabled_regions = {}
 
 
 	def registerExtenderCallbacks(self, callbacks):
@@ -96,7 +99,11 @@ class BurpExtender(IBurpExtender, IExtensionStateListener, ITab, IHttpListener):
 				restApiId=self.create_api_response['id'],
 				resourceId=get_resource_response['items'][0]['id'],
 				httpMethod='ANY',
-				authorizationType='NONE'
+				authorizationType='NONE',
+				requestParameters={
+					'method.request.path.proxy':True,
+					'method.request.header.X-My-X-Forwarded-For':True
+                                }
 			)
 
 			self.awsclient.put_integration(
@@ -106,7 +113,11 @@ class BurpExtender(IBurpExtender, IExtensionStateListener, ITab, IHttpListener):
 				httpMethod='ANY',
 				integrationHttpMethod='ANY',
 				uri=self.getTargetProtocol()+'://'+self.target_host.text + '/',
-				connectionType='INTERNET'
+				connectionType='INTERNET',
+				requestParameters={
+					'integration.request.path.proxy':'method.request.path.proxy',
+                                        'integration.request.header.X-Forwarded-For': 'method.request.header.X-My-X-Forwarded-For'
+				}
 			)
 
 			self.awsclient.put_method(
@@ -115,7 +126,8 @@ class BurpExtender(IBurpExtender, IExtensionStateListener, ITab, IHttpListener):
 				httpMethod='ANY',
 				authorizationType='NONE',
 				requestParameters={
-					'method.request.path.proxy':True
+					'method.request.path.proxy':True,
+					'method.request.header.X-My-X-Forwarded-For':True
 				}
 			)
 
@@ -128,7 +140,8 @@ class BurpExtender(IBurpExtender, IExtensionStateListener, ITab, IHttpListener):
 				uri= self.getTargetProtocol()+'://'+self.target_host.text+'/{proxy}',
 				connectionType= 'INTERNET',
 				requestParameters={
-					'integration.request.path.proxy':'method.request.path.proxy'
+					'integration.request.path.proxy':'method.request.path.proxy',
+                                        'integration.request.header.X-Forwarded-For': 'method.request.header.X-My-X-Forwarded-For'
 				}
 			)
 
@@ -178,6 +191,10 @@ class BurpExtender(IBurpExtender, IExtensionStateListener, ITab, IHttpListener):
 
 	#Called on "save" button click to save the settings
 	def saveKeys(self, event):
+		aws_access_key_id=self.access_key.text
+		aws_secret_access_key=self.secret_key.text
+		self.callbacks.saveExtensionSetting("aws_access_key_id", aws_access_key_id)
+		self.callbacks.saveExtensionSetting("aws_secret_access_key", aws_secret_access_key)
 		return
 
 	#Called on "Enable" button click to spin up the API Gateway
@@ -219,7 +236,13 @@ class BurpExtender(IBurpExtender, IExtensionStateListener, ITab, IHttpListener):
 
 		#Modify the request host, host header, and path to point to the new API endpoint
 		#Should always use HTTPS because API Gateway only uses HTTPS
-		if (self.target_host.text == httpService.getHost()):
+		if ':' in self.target_host.text: #hacky fix for https://github.com/RhinoSecurityLabs/IPRotate_Burp_Extension/issues/14
+			host_no_port = self.target_host.text.split(':')[0]
+			
+		else:
+			host_no_port = self.target_host.text
+
+		if (host_no_port == httpService.getHost()):
 			#Cycle through all the endpoints each request until then end of the list is reached
 			if self.currentEndpoint < len(self.allEndpoints)-1:
 				self.currentEndpoint += 1
@@ -238,8 +261,14 @@ class BurpExtender(IBurpExtender, IExtensionStateListener, ITab, IHttpListener):
 			new_headers = requestInfo.headers
 
 			#Update the path to point to the API Gateway path
-			req_head = new_headers[0]	
-			new_headers[0] = re.sub(' \/'," /"+STAGE_NAME+"/",req_head)
+			req_head = new_headers[0]
+			#hacky fix for https://github.com/RhinoSecurityLabs/IPRotate_Burp_Extension/issues/14
+			if 'http://' in req_head or 'https://' in req_head:
+				cur_path = re.findall('https?:\/\/.*?\/(.*) ',req_head)[0]
+				new_headers[0] = re.sub(' (.*?) '," /"+STAGE_NAME+"/"+cur_path+" ",req_head)
+
+			else:
+				new_headers[0] = re.sub(' \/'," /"+STAGE_NAME+"/",req_head)
 
 			#Replace the Host header with the Gateway host
 			for header in new_headers:
@@ -265,6 +294,13 @@ class BurpExtender(IBurpExtender, IExtensionStateListener, ITab, IHttpListener):
 
 	#Layout the UI
 	def getUiComponent(self):
+		aws_access_key_id = self.callbacks.loadExtensionSetting("aws_access_key_id")
+		aws_secret_accesskey = self.callbacks.loadExtensionSetting("aws_secret_access_key")
+		if aws_access_key_id:
+			self.aws_access_key_id = aws_access_key_id
+		if aws_secret_accesskey:
+			self.aws_secret_accesskey = aws_secret_accesskey
+
 		self.panel = JPanel()
 
 		self.main = JPanel()
@@ -274,14 +310,14 @@ class BurpExtender(IBurpExtender, IExtensionStateListener, ITab, IHttpListener):
 		self.main.add(self.access_key_panel)
 		self.access_key_panel.setLayout(BoxLayout(self.access_key_panel, BoxLayout.X_AXIS))
 		self.access_key_panel.add(JLabel('Access Key: '))
-		self.access_key = JTextField('', 25)
+		self.access_key = JTextField(self.aws_access_key_id,25)
 		self.access_key_panel.add(self.access_key)
 
 		self.secret_key_panel = JPanel()
 		self.main.add(self.secret_key_panel)
 		self.secret_key_panel.setLayout(BoxLayout(self.secret_key_panel, BoxLayout.X_AXIS))
 		self.secret_key_panel.add(JLabel('Secret Key: '))
-		self.secret_key = JPasswordField('', 25)
+		self.secret_key = JPasswordField(self.aws_secret_accesskey,25)
 		self.secret_key_panel.add(self.secret_key)
 
 		self.target_host_panel = JPanel()
@@ -294,8 +330,8 @@ class BurpExtender(IBurpExtender, IExtensionStateListener, ITab, IHttpListener):
 		self.buttons_panel = JPanel()
 		self.main.add(self.buttons_panel)
 		self.buttons_panel.setLayout(BoxLayout(self.buttons_panel, BoxLayout.X_AXIS))
-		#self.save_button = JButton('Save', actionPerformed = self.saveKeys) #not implemented yet
-		#self.buttons_panel.add(self.save_button)
+		self.save_button = JButton('Save Keys', actionPerformed = self.saveKeys)
+		self.buttons_panel.add(self.save_button)
 		self.enable_button = JButton('Enable', actionPerformed = self.enableGateway)
 		self.buttons_panel.add(self.enable_button)
 		self.disable_button = JButton('Disable', actionPerformed = self.disableGateway)
