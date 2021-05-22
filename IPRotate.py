@@ -17,7 +17,8 @@ AVAIL_REGIONS = [
 	"us-east-1","us-west-1","us-east-2",
 	"us-west-2","eu-central-1","eu-west-1",
 	"eu-west-2","eu-west-3","sa-east-1","eu-north-1",
-	"ap-east-1","ap-south-1","ap-northeast-3","ap-northeast-2","ap-southeast-1","ap-southeast-2","ap-northeast-1"
+	# "ap-east-1",
+	"ap-south-1","ap-northeast-3","ap-northeast-2","ap-southeast-1","ap-southeast-2","ap-northeast-1"
 ]
 
 class BurpExtender(IBurpExtender, IExtensionStateListener, ITab, IHttpListener):
@@ -325,7 +326,7 @@ class BurpExtender(IBurpExtender, IExtensionStateListener, ITab, IHttpListener):
 		self.main.add(self.target_host_panel)
 		self.target_host_panel.setLayout(BoxLayout(self.target_host_panel, BoxLayout.X_AXIS))
 		self.target_host_panel.add(JLabel('Target host: '))
-		self.target_host = JTextField('example.com', 25)
+		self.target_host = JTextField('ifconfig.io', 25)
 		self.target_host_panel.add(self.target_host)
 
 		self.buttons_panel = JPanel()
@@ -362,7 +363,10 @@ class BurpExtender(IBurpExtender, IExtensionStateListener, ITab, IHttpListener):
 		for region in AVAIL_REGIONS:
 			cur_region = region.replace('-','_')
 			cur_region = cur_region+'_status'
-			setattr(self,cur_region,JCheckBox(region,True))
+			if cur_region.startswith("ap"):
+				setattr(self,cur_region,JCheckBox(region,True))
+			else:
+				setattr(self,cur_region,JCheckBox(region,False))
 			attr = getattr(self,cur_region)
 			self.regions_panel.add(attr)
 
