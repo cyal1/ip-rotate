@@ -1,3 +1,4 @@
+#coding:utf-8
 #AUTHOR: Dave Yesland @daveysec, Rhino Security Labs @rhinosecurity
 #Burp Suite extension which uses AWS API Gateway to change your IP on every request to bypass IP blocking.
 #More Info: https://rhinosecuritylabs.com/aws/bypassing-ip-based-blocking-aws/
@@ -8,17 +9,40 @@ from java.awt import GridLayout
 import boto3
 import re
 
+# us-east-1	美国东部（弗吉尼亚北部）
+# us-east-2	美国东部（俄亥俄）
+# us-west-1	美国西部（加利福尼亚北部）
+# us-west-2	美国西部（俄勒冈）
+# af-south-1	非洲（开普敦）
+# ap-east-1	亚太地区（香港）不可用
+# ap-south-1	亚太地区（孟买）
+# ap-northeast-3	亚太地区（大阪）
+# ap-northeast-2	亚太地区（首尔）
+# ap-southeast-1	亚太地区（新加坡）
+# ap-southeast-2	亚太地区（悉尼）
+# ap-northeast-1	亚太地区（东京）
+# ca-central-1	加拿大（中部）
+# eu-central-1	欧洲（法兰克福）
+# eu-west-1	欧洲（爱尔兰）
+# eu-west-2	欧洲（伦敦）
+# eu-south-1	欧洲（米兰）
+# eu-west-3	欧洲（巴黎）
+# eu-north-1	欧洲（斯德哥尔摩）
+# me-south-1	中东（巴林）
+# sa-east-1	南美洲（圣保罗）
+# us-gov-east-1	AWS GovCloud（美国东部）
+# us-gov-west-1	AWS GovCloud（美国西部）
+
 EXT_NAME = 'IP Rotate'
 ENABLED = '<html><h2><font color="green">Enabled</font></h2></html>'
 DISABLED = '<html><h2><font color="red">Disabled</font></h2></html>'
 STAGE_NAME = 'burpendpoint'
 API_NAME = 'BurpAPI'
 AVAIL_REGIONS = [
-	"us-east-1","us-west-1","us-east-2",
-	"us-west-2","eu-central-1","eu-west-1",
-	"eu-west-2","eu-west-3","sa-east-1","eu-north-1",
-	# "ap-east-1",
-	"ap-south-1","ap-northeast-3","ap-northeast-2","ap-southeast-1","ap-southeast-2","ap-northeast-1"
+	"us-east-1","us-west-1","us-east-2","us-west-2","us-gov-east-1","us-gov-west-1",
+	"eu-central-1","eu-west-1","eu-west-2","eu-west-3","eu-north-1","eu-south-1"
+	"sa-east-1","ca-central-1","me-south-1",
+	"ap-east-1","ap-south-1","ap-northeast-3","ap-northeast-2","ap-southeast-1","ap-southeast-2","ap-northeast-1"
 ]
 
 class BurpExtender(IBurpExtender, IExtensionStateListener, ITab, IHttpListener):
@@ -363,7 +387,7 @@ class BurpExtender(IBurpExtender, IExtensionStateListener, ITab, IHttpListener):
 		for region in AVAIL_REGIONS:
 			cur_region = region.replace('-','_')
 			cur_region = cur_region+'_status'
-			if cur_region.startswith("ap"):
+			if cur_region.startswith("ap") and cur_region != 'ap_east_1_status':
 				setattr(self,cur_region,JCheckBox(region,True))
 			else:
 				setattr(self,cur_region,JCheckBox(region,False))
