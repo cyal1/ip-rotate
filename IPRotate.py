@@ -369,6 +369,7 @@ class BurpExtender(IBurpExtender, IExtensionStateListener, ITab, IHttpListener):
 		self.main.add(self.status)
 		self.status.setLayout(BoxLayout(self.status, BoxLayout.X_AXIS))
 		self.status_indicator = JLabel(DISABLED,JLabel.CENTER)
+		self.status_indicator.putClientProperty("html.disable", None)
 		self.status.add(self.status_indicator)
 		
 		self.panel.add(self.main)
