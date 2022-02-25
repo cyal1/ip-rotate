@@ -2,11 +2,12 @@ Uuid: 2eb2b1cb1cf34cc79cda36f0f9019874
 ExtensionType: 2
 Name: IP Rotate
 RepoName: ip-rotate
-ScreenVersion: 2.0
-SerialVersion: 3
+ScreenVersion: 2.0a
+SerialVersion: 4
 MinPlatformVersion: 2
 ProOnly: False
 Author: David Yesland
 ShortDescription: Uses AWS API Gateway to change your IP on every request.
 EntryPoint: IPRotate.py
 BuildCommand: 
+SupportedProducts: Pro, Community
